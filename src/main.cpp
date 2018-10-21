@@ -12,6 +12,7 @@
 #include <any>
 #include <cassert>
 #include <iostream>
+#include <memory>
 #include <string>
 #include <typeindex>
 #include <typeinfo>
