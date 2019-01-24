@@ -26,17 +26,19 @@
 // sub-class contained in its `PersonHolder::m_person`, while invoking `std::any_cast<>`
 // on each argument passed to `do_work()`.
 //
-// As Peter Goldsborough mentioned in his blog:
-// "The primary drawback is that verification of argument types is moved to runtime
-// instead of compile team. This is especially annoying since implicit conversions do 
-// not work either, such that passing an int where a long is expected will result in a
-// runtime exception. Furthermore, also the number of arguments can only at runtime be
-// compared to the arity of the method. Finally, since the statically known number of
-// arguments (sizeof...(Args)) given to AnyPerson::work is lost while passing through
-// PersonHolder::invoke_work, we must expect the number of arguments to be equal to the
-// arity of the concrete work() method. This means default arguments do not work out of
-// the box."
-//
+// The call stacks from `Library::Office::work()` to `do_work()` for the two
+// `Library::Person` sub-classes are (note themplated mthods and their template 
+// parameters!):
+//   Library::Office::work<Recipe,std::vector<Ingredient>>(Recipe&& <args_0>, std::vector<Ingredient>&& <args_1>)
+//     AnyPerson::work<Recipe,std::vector<Ingredient>>(Recipe&& <arguments_0>, std::vector<Ingredient>&& <arguments_1>)
+//       AnyPerson::PersonHolder<Cook,Recipe,std::vector<Ingredient> const&>::invoke_work(std::vector<std::any>&& arguments)
+//         AnyPerson::PersonHolder<Cook,Recipe,std::vector<Ingredient> const&>::invoke_work_impl<0,1>(std::vector<std::any>&& arguments, std::integer_sequence<size_t,0,1> __formal)
+//           Cook::do_work(Recipe recipe, std::vector<Ingredient> const& ingredients)
+//   Library::Office::work<Monitor,Keyboard,Cup>(Monitor&& <args_0>, Keyboard&& <args_1>, Cup&& <args_2>)
+//     AnyPerson::work<Monitor,Keyboard,Cup>(Monitor&& <arguments_0>, Keyboard&& <arguments_1>, Cup&& <arguments_2>)
+//       AnyPerson::PersonHolder<Programmer,Monitor,Keyboard,Cup>::invoke_work(std::vector<std::any>&& arguments)
+//         AnyPerson::PersonHolder<Programmer,Monitor,Keyboard,Cup>::invoke_work_impl<0,1,2>(std::vector<std::any>&& arguments, std::integer_sequence<size_t,0,1,2> __formal)
+//           Programmer::do_work(Monitor monitor, Keyboard keyboard, Cup coffee)
 // The code prints:
 //   Alice is working on recipe with 3 ingredients: flour, eggs, milk
 //   Peter is working on keyboard, monitor, and coffee
@@ -47,6 +49,17 @@
 // This shows that some code can do common processing of `Library::Person` objects,
 // while pseudo-virtual invocation of (arbitrarily different) `do_work() methods is
 // taking place.
+//
+// As Peter Goldsborough mentioned in his blog:
+// "The primary drawback is that verification of argument types is moved to runtime
+// instead of compile team. This is especially annoying since implicit conversions do 
+// not work either, such that passing an int where a long is expected will result in a
+// runtime exception. Furthermore, also the number of arguments can only at runtime be
+// compared to the arity of the method. Finally, since the statically known number of
+// arguments (sizeof...(Args)) given to AnyPerson::work is lost while passing through
+// PersonHolder::invoke_work, we must expect the number of arguments to be equal to the
+// arity of the concrete work() method. This means default arguments do not work out of
+// the box."
 
 
 #include <any>
@@ -137,7 +150,7 @@ private:
 namespace Library {
 class Person {
 public:
-  explicit Person(std::string name) : m_name(std::move(name)) { }
+  explicit Person(std::string name) : m_name(std::move(name)) {}
   virtual ~Person() = default;
   [[nodiscard]] const std::string& name() const noexcept { return m_name; }
   // no virtual do_work() method!
@@ -147,7 +160,7 @@ private:
 
 class Office {
 public:
-  explicit Office(AnyPerson person) : m_person(std::move(person)) { }
+  explicit Office(AnyPerson person) : m_person(std::move(person)) {}
 
   template<typename... Args>
   void work(Args&&... args) {
@@ -183,6 +196,6 @@ public:
 };
 
 int main(int, char*[]) {
-  Library::Office{Cook      {"Alice"s}}.work(Recipe{}, std::vector<Ingredient>{{"flour"s, "eggs"s, "milk"s}});
-  Library::Office{Programmer{"Peter"s}}.work(Monitor{}, Keyboard{}, Cup{});
+  Library::Office{Cook      {"Alice"}}.work(Recipe{}, std::vector<Ingredient>{{"flour"s, "eggs"s, "milk"s}});
+  Library::Office{Programmer{"Peter"}}.work(Monitor{}, Keyboard{}, Cup{});
 }
