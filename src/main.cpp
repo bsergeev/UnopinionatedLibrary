@@ -1,21 +1,47 @@
 // This code is based on Peter Goldsborough's blog "Type Erasure for Unopinionated
 // Interfaces in C++":
 // https://www.goldsborough.me/cpp/2018/05/22/00-32-43-type_erasure_for_unopinionated_interfaces_in_c++/
-//
-// Main changes:
-//  - replaces Any with std::any
+// My changes:
+//  - replaced Any with std::any
 //  - used C++17 fold expression to simplify detail::collect_any_vector()
-//  - implemented classes passed to Office::work()
+//  - implemented classes passed to Office::work(), just to get a working example
 //  - moved everything into a single file
-//  - renamed a couple of classes and their members
+//  - renamed several classes and their members
+//
+// Explanation:
+// Instantiate `Library::Office` by passing an object of `Library::Person` sub-class
+// to `Library::Office` constructor. This object is then used to implicitly construct
+// `AnyPerson` that gets stored in `Office::m_person`. When `Library::Office::work()` is
+// invoked (with arbitrary arguments!), it forwards its arguments to `AnyPerson::work()`.
+// `AnyPerson::work()` then wraps these arbitrary arguments into `std::vector<std::any>`
+// and passes them to virtual `IPersonHolder::invoke_work()` method. The concrete sub-class
+// of `IPersonHolder` that's stored in `AnyPerson::m_personHolder` is templated on the type
+// of `Library::Person` sub-class and the signature of its `work()` method.
+// So, when `AnyPerson::work()` calls the overriden `IPersonHolder::invoke_work()` on its 
+// `m_personHolder` class variable, the `IPersonHolder` virtual table forwards this call to
+// the (templated) `PersonHolder::invoke_work()`, which first verifies that the size of
+// `std::vector<std::any>` argument matches the number of parameters in `work()` method
+// of `Library::Person` sub-class that this `PersonHolder` was templated with. Then,
+// `PersonHolder::invoke_work()` invokes the actual `work()` method of `Library::Person`
+// sub-class contained in its `PersonHolder::m_person`, while invoking `std::any_cast<>`
+// on each argument passed to `work()`.
+//
+// As Peter Goldsborough mentioned in his blog:
+// "The primary drawback is that verification of argument types is moved to runtime
+// instead of compile team. This is especially annoying since implicit conversions do 
+// not work either, such that passing an int where a long is expected will result in a
+// runtime exception. Furthermore, also the number of arguments can only at runtime be
+// compared to the arity of the method. Finally, since the statically known number of
+// arguments (sizeof...(Args)) given to AnyPerson::work is lost while passing through
+// PersonHolder::invoke_work, we must expect the number of arguments to be equal to the
+// arity of the concrete work() method. This means default arguments do not work out of
+// the box."
 
 #include <any>
 #include <cassert>
 #include <iostream>
 #include <memory>
 #include <string>
-#include <typeindex>
-#include <typeinfo>
 #include <vector>
 
 using namespace std::string_literals;
@@ -44,49 +70,30 @@ class AnyPerson {
 public:
   template<typename P,
            typename = std::enable_if_t<std::is_base_of_v<Library::Person, std::decay_t<P>>>>
-  AnyPerson(P&& person) : m_content(make_holder(std::forward<P>(person), &std::remove_reference_t<P>::work)) {}
-  AnyPerson(const AnyPerson& other) : m_content(other.m_content->clone()) {}
-  AnyPerson(AnyPerson&& other) noexcept { swap(other); }
+  AnyPerson(P&& person) 
+    : m_personHolder(make_holder(std::forward<P>(person), &std::remove_reference_t<P>::work))
+  {}
 
-  AnyPerson& operator=(AnyPerson other) { swap(other); return *this; }
-  void swap(AnyPerson& other) noexcept { m_content.swap(other.m_content); }
-
-  const std::string& name() const noexcept { return m_content->name(); }
+  const std::string& name() const noexcept { return m_personHolder->name(); }
 
   template<typename... Args>
   void work(Args&&... arguments) {
     std::vector<std::any> any_arguments;
     detail::collect_any_vector(any_arguments, std::forward<Args>(arguments)...);
-    return m_content->invoke_work(std::move(any_arguments));
-  }
-
-  template<typename P>
-  P& get() {
-    if (std::type_index(typeid(P)) == std::type_index(m_content->type_info())) {
-      return static_cast<Holder<P>&>(*m_content).value_;
-    }
-    throw std::bad_cast();
+    return m_personHolder->invoke_work(std::move(any_arguments));
   }
 
 private:
-  struct IHolder {
-    virtual ~IHolder() = default;
-    virtual const std::type_info&    type_info() const = 0;
-    virtual std::unique_ptr<IHolder> clone()           = 0;
-    virtual const std::string&       name() const noexcept = 0;
+  struct IPersonHolder {
+    virtual ~IPersonHolder() = default;
+    virtual const std::string& name() const noexcept       = 0;
     virtual void invoke_work(std::vector<std::any>&& args) = 0;
   };
 
   template<typename P, typename... Args>
-  struct Holder : public IHolder {
+  struct PersonHolder : public IPersonHolder {
     template<typename Q>
-    explicit Holder(Q&& person) : m_person(std::forward<Q>(person)) { }
-
-    const std::type_info& type_info() const override { return typeid(P); }
-
-    std::unique_ptr<IHolder> clone() override {
-      return std::make_unique<Holder<P, Args...>>(m_person);
-    }
+    explicit PersonHolder(Q&& person) : m_person(std::forward<Q>(person)) { }
 
     const std::string& name() const noexcept override { return m_person.name(); }
 
@@ -104,14 +111,15 @@ private:
     }
 
     P m_person;
-  }; // struct Holder
+  }; // struct PersonHolder
 
+private:
   template<typename P, typename... Args>
-  std::unique_ptr<IHolder> make_holder(P&& person, void(std::remove_reference_t<P>::*)(Args...)) {
-    return std::make_unique<Holder<P, Args...>>(std::forward<P>(person));
+  std::unique_ptr<IPersonHolder> make_holder(P&& person, void(std::remove_reference_t<P>::*)(Args...)) {
+    return std::make_unique<PersonHolder<P, Args...>>(std::forward<P>(person));
   }
 
-  std::unique_ptr<IHolder> m_content;
+  std::unique_ptr<IPersonHolder> m_personHolder;
 }; // class AnyPerson
 
 namespace Library {
