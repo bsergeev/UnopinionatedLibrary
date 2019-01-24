@@ -31,8 +31,10 @@ fi
 cd $BUILD_DIRECTORY
 
 if [ "$OS_NAME" = "Linux" ]; then
-  cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=$BUILD_CONFIGURATION ..
+  cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=$BUILD_CONFIGURATION -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
   make -j4
+  cp -f compile_commands.json ..
+
 elif [ "$OS_NAME" = "Windows" ]; then
   cmake -G "Visual Studio 15 2017 Win64" ..
   cmake --build . --target ALL_BUILD --config $BUILD_CONFIGURATION
