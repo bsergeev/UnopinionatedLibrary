@@ -93,11 +93,11 @@ private:
     void invoke_work(std::vector<std::any>&& arguments) override {
       assert(arguments.size() == sizeof...(Args));
       std::cout << "working on ";
-      invoke_work(std::move(arguments), std::make_index_sequence<sizeof...(Args)>());
+      invoke_work_impl(std::move(arguments), std::make_index_sequence<sizeof...(Args)>());
     }
-
+  private:
     template<size_t... Is>
-    void invoke_work(std::vector<std::any>&& arguments, std::index_sequence<Is...>) {
+    void invoke_work_impl(std::vector<std::any>&& arguments, std::index_sequence<Is...>) {
       // Expand the index sequence to access each std::any stored in `arguments` and cast
       // to the type expected at each index. Note we move each value out of the std::any.
       return m_person.work(std::move(std::any_cast<Args>(arguments[Is]))...);
@@ -121,8 +121,8 @@ public:
   virtual ~Person() = default;
   const std::string& name() const noexcept { return m_name; }
   // no virtual work() method!
-protected:
-  std::string m_name;
+private:
+  const std::string m_name;
 };
 
 class Office {
