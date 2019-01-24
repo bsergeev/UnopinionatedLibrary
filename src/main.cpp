@@ -16,15 +16,15 @@
 // `AnyPerson::work()` then wraps these arbitrary arguments into `std::vector<std::any>`
 // and passes them to virtual `IPersonHolder::invoke_work()` method. The concrete sub-class
 // of `IPersonHolder` that's stored in `AnyPerson::m_personHolder` is templated on the type
-// of `Library::Person` sub-class and the signature of its `work()` method.
+// of `Library::Person` sub-class and the signature of its `do_work()` method.
 // So, when `AnyPerson::work()` calls the overriden `IPersonHolder::invoke_work()` on its 
 // `m_personHolder` class variable, the `IPersonHolder` virtual table forwards this call to
 // the (templated) `PersonHolder::invoke_work()`, which first verifies that the size of
-// `std::vector<std::any>` argument matches the number of parameters in `work()` method
+// `std::vector<std::any>` argument matches the number of parameters in `do_work()` method
 // of `Library::Person` sub-class that this `PersonHolder` was templated with. Then,
-// `PersonHolder::invoke_work()` invokes the actual `work()` method of `Library::Person`
+// `PersonHolder::invoke_work()` invokes the actual `do_work()` method of `Library::Person`
 // sub-class contained in its `PersonHolder::m_person`, while invoking `std::any_cast<>`
-// on each argument passed to `work()`.
+// on each argument passed to `do_work()`.
 //
 // As Peter Goldsborough mentioned in his blog:
 // "The primary drawback is that verification of argument types is moved to runtime
@@ -36,6 +36,18 @@
 // PersonHolder::invoke_work, we must expect the number of arguments to be equal to the
 // arity of the concrete work() method. This means default arguments do not work out of
 // the box."
+//
+// The code prints:
+//   Alice is working on recipe with 3 ingredients: flour, eggs, milk
+//   Peter is working on keyboard, monitor, and coffee
+// where:
+// - the name and " is" (e.g. "Alice is") is printed from `Library::Office::work()`
+// - "working on" is printed from `AnyPerson::PersonHolder::invoke_work()`
+// - and the rest is printed from `do_work()` of `Library::Person` sub-classes.
+// This shows that some code can do common processing of `Library::Person` objects,
+// while pseudo-virtual invocation of (arbitrarily different) `do_work() methods is
+// taking place.
+
 
 #include <any>
 #include <cassert>
@@ -71,7 +83,7 @@ public:
   template<typename P,
            typename = std::enable_if_t<std::is_base_of_v<Library::Person, std::decay_t<P>>>>
   AnyPerson(P&& person) 
-    : m_personHolder(make_holder(std::forward<P>(person), &std::remove_reference_t<P>::work))
+    : m_personHolder(make_holder(std::forward<P>(person), &std::remove_reference_t<P>::do_work))
   {}
 
   [[nodiscard]] const std::string& name() const noexcept { return m_personHolder->name(); }
@@ -107,7 +119,7 @@ private:
     void invoke_work_impl(std::vector<std::any>&& arguments, std::index_sequence<Is...>) {
       // Expand the index sequence to access each std::any stored in `arguments` and cast
       // to the type expected at each index. Note we move each value out of the std::any.
-      return m_person.work(std::move(std::any_cast<Args>(arguments[Is]))...);
+      return m_person.do_work(std::move(std::any_cast<Args>(arguments[Is]))...);
     }
 
     P m_person;
@@ -128,7 +140,7 @@ public:
   explicit Person(std::string name) : m_name(std::move(name)) { }
   virtual ~Person() = default;
   [[nodiscard]] const std::string& name() const noexcept { return m_name; }
-  // no virtual work() method!
+  // no virtual do_work() method!
 private:
   const std::string m_name;
 };
@@ -151,7 +163,7 @@ private:
 class Cook : public Library::Person {
 public:
   using Library::Person::Person;
-  void work(Recipe recipe, const std::vector<Ingredient>& ingredients) { 
+  void do_work(Recipe recipe, const std::vector<Ingredient>& ingredients) {
     std::cout << recipe.name() <<" with "<< ingredients.size() <<" ingredients: ";
     bool first = true;
     for (const auto& i : ingredients) {
@@ -165,7 +177,7 @@ public:
 class Programmer : public Library::Person {
 public:
   using Library::Person::Person;
-  void work(Monitor monitor, Keyboard keyboard, Cup coffee) { 
+  void do_work(Monitor monitor, Keyboard keyboard, Cup coffee) {
     std::cout << keyboard.name() <<", "<< monitor.name() <<", and "<< coffee.name() << std::endl; 
   }
 };
