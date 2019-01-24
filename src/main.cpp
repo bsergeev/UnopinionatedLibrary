@@ -46,13 +46,13 @@
 
 using namespace std::string_literals;
 
-struct Monitor  { std::string name() const noexcept { return "monitor"s;  } };
-struct Keyboard { std::string name() const noexcept { return "keyboard"s; } };
-struct Cup      { std::string name() const noexcept { return "coffee"s;   } };
-struct Recipe   { std::string name() const noexcept { return "recipe"s;   } };
+struct Monitor  { [[nodiscard]] std::string name() const noexcept { return "monitor"s;  } };
+struct Keyboard { [[nodiscard]] std::string name() const noexcept { return "keyboard"s; } };
+struct Cup      { [[nodiscard]] std::string name() const noexcept { return "coffee"s;   } };
+struct Recipe   { [[nodiscard]] std::string name() const noexcept { return "recipe"s;   } };
 struct Ingredient {
   Ingredient(std::string name = "stuff"s) : m_name(std::move(name)) {}
-  const std::string& name() const noexcept { return m_name; }
+  [[nodiscard]] const std::string& name() const noexcept { return m_name; }
 private:
   const std::string m_name;
 };
@@ -74,7 +74,7 @@ public:
     : m_personHolder(make_holder(std::forward<P>(person), &std::remove_reference_t<P>::work))
   {}
 
-  const std::string& name() const noexcept { return m_personHolder->name(); }
+  [[nodiscard]] const std::string& name() const noexcept { return m_personHolder->name(); }
 
   template<typename... Args>
   void work(Args&&... arguments) {
@@ -95,7 +95,7 @@ private:
     template<typename Q>
     explicit PersonHolder(Q&& person) : m_person(std::forward<Q>(person)) { }
 
-    const std::string& name() const noexcept override { return m_person.name(); }
+    [[nodiscard]] const std::string& name() const noexcept override { return m_person.name(); }
 
     void invoke_work(std::vector<std::any>&& arguments) override {
       assert(arguments.size() == sizeof...(Args));
@@ -127,7 +127,7 @@ class Person {
 public:
   explicit Person(std::string name) : m_name(std::move(name)) { }
   virtual ~Person() = default;
-  const std::string& name() const noexcept { return m_name; }
+  [[nodiscard]] const std::string& name() const noexcept { return m_name; }
   // no virtual work() method!
 private:
   const std::string m_name;
@@ -171,6 +171,6 @@ public:
 };
 
 int main(int, char*[]) {
-  Library::Office{Cook      ("Alice"s)}.work(Recipe{}, std::vector<Ingredient>{{"flour"s, "eggs"s, "milk"s}});
-  Library::Office{Programmer("Peter"s)}.work(Monitor{}, Keyboard{}, Cup{});
+  Library::Office{Cook      {"Alice"s}}.work(Recipe{}, std::vector<Ingredient>{{"flour"s, "eggs"s, "milk"s}});
+  Library::Office{Programmer{"Peter"s}}.work(Monitor{}, Keyboard{}, Cup{});
 }
