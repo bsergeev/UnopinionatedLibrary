@@ -8,6 +8,7 @@ My changes:
  - implemented classes passed to `Office::work()`  
  - moved everything into a single file for simplicity  
  - renamed a couple of classes and their members  
+  
 For detailed explanation of the code, look at the only source, src/main.cpp.   
 
 The code is complete and buildable with a C++17 compiler (tested with VS2017, GCC 8.2, and Clang 7).
