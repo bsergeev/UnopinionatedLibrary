@@ -27,7 +27,7 @@
 // on each argument passed to `do_work()`.
 //
 // The call stacks from `Library::Office::work()` to `do_work()` for the two
-// `Library::Person` sub-classes are (note themplated mthods and their template 
+// `Library::Person` sub-classes are (note templated methods and their template 
 // parameters!):
 //   Library::Office::work<Recipe,std::vector<Ingredient>>(Recipe&& <args_0>, std::vector<Ingredient>&& <args_1>)
 //     AnyPerson::work<Recipe,std::vector<Ingredient>>(Recipe&& <arguments_0>, std::vector<Ingredient>&& <arguments_1>)
@@ -47,7 +47,7 @@
 // - "working on" is printed from `AnyPerson::PersonHolder::invoke_work()`
 // - and the rest is printed from `do_work()` of `Library::Person` sub-classes.
 // This shows that some code can do common processing of `Library::Person` objects,
-// while pseudo-virtual invocation of (arbitrarily different) `do_work() methods is
+// while pseudo-virtual invocation of (arbitrarily different) `do_work()` methods is
 // taking place.
 //
 // As Peter Goldsborough mentioned in his blog:

@@ -8,7 +8,7 @@ endif()
 message(STATUS "CMAKE_BUILD_TYPE = ${CMAKE_BUILD_TYPE}")
 
 set(TARGET_NAME Test)
-project(${TARGET_NAME} CXX)
+project(${TARGET_NAME} LANGUAGES CXX)
 
 set(sources 
   "${PROJECT_SOURCE_DIR}/src/main.cpp"
